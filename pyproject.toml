@@ -1,0 +1,23 @@
+[project]
+name = "romanize"
+version = "0.1.0"
+description = "Romanize Thai text"
+requires-python = ">=3.10"
+dependencies = [
+    "pythainlp>=5.3.7",
+]
+
+[project.scripts]
+romanize = "romanize.cli:main"
+
+[project.optional-dependencies]
+thai2rom = ["torch"]
+thai2rom_onnx = ["onnxruntime"]
+tltk = ["tltk"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+packages = [{ include = "romanize" }]
