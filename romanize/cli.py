@@ -2,6 +2,7 @@
 """Romanize Thai text."""
 
 import sys
+from argparse import ArgumentParser
 
 from pythainlp.transliterate import romanize, transliterate
 
@@ -26,28 +27,32 @@ def _available(engine: str) -> bool:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = list(argv) if argv is not None else sys.argv[1:]
-    text = DEFAULT_TEXT
+    parser = ArgumentParser(prog="romanize", description="Romanize Thai text.")
+    parser.add_argument("text", nargs="?", default=DEFAULT_TEXT)
+    parser.add_argument(
+        "engines", nargs="*", choices=CORE_ENGINES + ML_ENGINES
+    )
+    parser.add_argument("--iso", action="store_true", help="also print ISO 11940 transliteration")
+    args = parser.parse_args(argv)
 
-    if args and not args[0].startswith("-"):
-        text = args.pop(0)
-
-    engine = args[0] if args else None
-    engines = (engine,) if engine else CORE_ENGINES
+    engines = args.engines or list(CORE_ENGINES)
+    multiple = len(engines) > 1
 
     for e in engines:
         if e in ML_ENGINES and not _available(e):
-            print(f"romanize({text!r}, engine={e!r}): skipped (not installed)")
+            print(f"skipped {e}: not installed", file=sys.stderr)
             continue
         try:
-            print(f"romanize({text!r}, engine={e!r}):", romanize(text, engine=e))
+            result = romanize(args.text, engine=e)
+            print(f"{e}: {result}" if multiple else result)
         except Exception as exc:
-            print(f"romanize({text!r}, engine={e!r}): ERROR {exc}")
+            print(f"{e}: ERROR {exc}", file=sys.stderr)
 
-    try:
-        print(f"transliterate({text!r}, engine='iso_11940'):", transliterate(text, engine="iso_11940"))
-    except Exception as exc:
-        print(f"transliterate({text!r}, engine='iso_11940'): ERROR {exc}")
+    if args.iso:
+        try:
+            print(transliterate(args.text, engine="iso_11940"))
+        except Exception as exc:
+            print(f"iso_11940: ERROR {exc}", file=sys.stderr)
     return 0
 
 

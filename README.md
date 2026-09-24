@@ -21,13 +21,13 @@ poetry install -E tltk           # tltk
 ## Usage
 
 ```bash
-romanize                    # default text "สวัสดี", default engine royin
-romanize "<Thai text>"      # romanize with every core engine
+romanize                    # prints "swatdi" (default text, royin)
+romanize "<Thai text>"      # prints the royin romanization
 romanize "<Thai text>" thai2rom
-romanize "<Thai text>" thai2rom_onnx tltk
+romanize "<Thai text>" --iso thai2rom_onnx tltk
 ```
 
-Always prints an ISO 11940 transliteration as well. Uninstalled ML engines are skipped with a notice instead of failing.
+Prints just the romanized text (one line per engine). Add `--iso` for the lossless ISO 11940 transliteration. Uninstalled ML engines are skipped with a stderr notice instead of failing.
 
 ## Structure
 
