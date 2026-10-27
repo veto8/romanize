@@ -9,6 +9,7 @@ dependencies = [
 
 [project.scripts]
 romanize = "romanize.cli:main"
+romanize-lexicon = "romanize.lexicon:main"
 
 [project.optional-dependencies]
 thai2rom = ["torch"]

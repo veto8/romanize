@@ -1,58 +1,79 @@
 #!/usr/bin/env python3
-"""Romanize Thai text."""
+"""Pronunciation from Wiktionary IPA: true for any language, lexical fallback."""
 
+import os
+import re
 import sys
 from argparse import ArgumentParser
 
-from pythainlp.transliterate import romanize, transliterate
+from pythainlp.tokenize import word_tokenize
+from pythainlp.transliterate import romanize
 
-CORE_ENGINES = ("royin",)
-ML_ENGINES = ("thai2rom", "thai2rom_onnx", "tltk")
+THAI_RE = re.compile(r"[\u0E00-\u0E7F]")
+TRIM = ' .,!?;:"\'()[]{}\u00AB\u00BB\u201C\u201D\u2018\u2019\u2013\u2014\u2026'
 DEFAULT_TEXT = "สวัสดี"
+DEFAULT_LANG = "th"
+LEXICONS_DIR = "lexicons"
 
 
-def _available(engine: str) -> bool:
+def _thai_tokens(text: str) -> list[str]:
+    return [t for t in word_tokenize(text, keep_whitespace=False) if t.strip()]
+
+
+def _word_tokens(text: str) -> list[str]:
+    return [t.strip(TRIM) for t in text.split() if t.strip()]
+
+
+TOKENIZERS = {"th": _thai_tokens}
+
+
+def load_lexicon(path: str) -> dict[str, str]:
+    words: dict[str, str] = {}
     try:
-        from importlib import import_module
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                word, _, ipa = line.rstrip("\n").partition("\t")
+                if word:
+                    words[word] = ipa
+    except OSError:
+        return {}
+    return words
 
-        module = {
-            "thai2rom": "torch",
-            "thai2rom_onnx": "onnxruntime",
-            "tltk": "tltk",
-        }[engine]
-        import_module(module)
-        return True
-    except ImportError:
-        return False
+
+def pronounce(text: str, lexicon: dict[str, str], lang: str, engine: str) -> str:
+    tokenizer = TOKENIZERS.get(lang, _word_tokens)
+    out = []
+    for token in tokenizer(text):
+        if token in lexicon:
+            out.append(lexicon[token])
+        elif lang == "th" and THAI_RE.search(token):
+            out.append(romanize(token, engine=engine))
+        else:
+            out.append(token)
+    return " ".join(out)
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = ArgumentParser(prog="romanize", description="Romanize Thai text.")
-    parser.add_argument("text", nargs="?", default=DEFAULT_TEXT)
-    parser.add_argument(
-        "engines", nargs="*", choices=CORE_ENGINES + ML_ENGINES
+    parser = ArgumentParser(
+        prog="romanize",
+        description="True pronunciation (IPA) from Wiktionary lexicons, in any language.",
     )
-    parser.add_argument("--iso", action="store_true", help="also print ISO 11940 transliteration")
+    parser.add_argument("text", nargs="?", default=DEFAULT_TEXT)
+    parser.add_argument("--lang", default=DEFAULT_LANG, help="language code (default: th)")
+    parser.add_argument(
+        "--lexicon", default="", help="lexicon TSV (default: <lexicons>/<lang>.tsv)"
+    )
+    parser.add_argument(
+        "--engine", default="royin", help="Thai fallback romanization engine (default: royin)"
+    )
     args = parser.parse_args(argv)
 
-    engines = args.engines or list(CORE_ENGINES)
-    multiple = len(engines) > 1
+    path = args.lexicon or os.path.join(LEXICONS_DIR, f"{args.lang}.tsv")
+    lexicon = load_lexicon(path)
+    if not lexicon:
+        print(f"warning: no lexicon at {path}, passing unknown words through", file=sys.stderr)
 
-    for e in engines:
-        if e in ML_ENGINES and not _available(e):
-            print(f"skipped {e}: not installed", file=sys.stderr)
-            continue
-        try:
-            result = romanize(args.text, engine=e)
-            print(f"{e}: {result}" if multiple else result)
-        except Exception as exc:
-            print(f"{e}: ERROR {exc}", file=sys.stderr)
-
-    if args.iso:
-        try:
-            print(transliterate(args.text, engine="iso_11940"))
-        except Exception as exc:
-            print(f"iso_11940: ERROR {exc}", file=sys.stderr)
+    print(pronounce(args.text, lexicon, args.lang, args.engine))
     return 0
 
 

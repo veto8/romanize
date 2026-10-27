@@ -2,6 +2,10 @@
 __pycache__/
 *.py[codz]
 *$py.class
+*.jsonl
+# Lexicon data (large downloads / generated)
+dumps/
+lexicons/
 
 # C extensions
 *.so
